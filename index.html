@@ -1,0 +1,196 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dodge the Animals — 3D</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0d2b22;color:#fff8d8;font:700 18px "Trebuchet MS",sans-serif}main{max-width:1100px;margin:auto;padding:10px}h1{font-size:clamp(26px,4.5vw,44px);margin:4px 0}.tag{opacity:.7;font-size:14px}button{font:inherit;border:3px solid #0d2b22;border-radius:14px;padding:12px;cursor:pointer;touch-action:none;background:#ffe49a;color:#0d2b22}button:focus-visible{outline:4px solid #fff}button[aria-pressed=true]{background:#87dfb2}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.stats{justify-content:space-between;margin:8px 0}.score{font-size:30px;color:#fff}.score b{display:inline-block;transition:transform .15s}.score b.pop{transform:scale(1.6)}.stop{background:#e83d35;color:#fff;font-size:24px;min-width:110px}#stage{position:relative;border-radius:16px;overflow:hidden;background:#9fdcf5}#canvasWrap{aspect-ratio:3/2;width:min(100%,calc((100vh - 175px)*1.5));margin:0 auto}#canvasWrap canvas{display:block;width:100%;height:100%}#flash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,#e8352c 100%);opacity:0;transition:opacity .18s;pointer-events:none}#keepRunning{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(28px,5vw,54px);color:#fff;text-shadow:0 3px 0 #0d2b22;background:rgba(13,43,34,.35);pointer-events:none}#countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(60px,12vw,140px);color:#ffd23f;text-shadow:0 4px 0 #0d2b22;pointer-events:none}.help{position:absolute;right:8px;bottom:8px;background:#0d2b22ef;border-radius:12px;padding:8px;font-size:13px;max-width:170px}.help p{margin:4px 0}.help video{width:100%;max-height:64px}#endPanel{text-align:center;background:#0f3d30;border-radius:16px;padding:18px;margin-top:10px}#endPanel h2{margin:6px}#endPanel .final{font-size:44px;color:#ffd23f}.notice{font-size:14px;opacity:.85}.status{min-height:26px;color:#ffe49a}.controls button{min-width:64px;min-height:52px}#mic{font-size:22px}#camera{display:none}[hidden]{display:none!important}
+</style></head><body><main>
+<header class="row"><h1>🐾 Dodge the Animals</h1><span class="tag">Group A · 3D</span></header>
+<section id="setup">
+ <p style="font-size:22px;margin:6px 0">🏃 Run on the spot　↔️ Dodge　⭐ Collect</p>
+ <p class="notice">⚠️ Keep 2 m clear space around you</p>
+ <div class="row" id="levels" style="margin:10px 0"><button data-level="easy" aria-pressed="true">Easy</button><button data-level="medium" aria-pressed="false">Medium</button><button data-level="hard" aria-pressed="false">Hard</button></div>
+ <p class="notice">📷 Camera stays on this device</p>
+ <div class="row" style="margin:10px 0"><button id="cameraStart">📷 Camera</button><button id="keyboardStart">⌨️ Play</button></div>
+ <p class="notice">🎤 Voice stop may use an online service.</p>
+</section>
+<div class="row stats" id="hud" hidden><span class="score">⭐ <b id="score">0</b></span><span>⏱ <b id="time">60</b></span><span class="row"><button id="mute" aria-label="Sound on or off">🔊</button><button class="stop" id="stop">■ STOP</button></span></div>
+<div id="stage" hidden><div id="canvasWrap"></div><div id="flash"></div><div id="keepRunning" hidden>🏃<br>Keep running!</div><div id="countdown" hidden>3</div><aside class="help"><strong>How to play</strong><p>🏃 Run ↔️ Dodge ⭐ Collect</p><video id="howto" controls preload="metadata" src="howto.mp4"></video><span id="videoFallback">Video coming soon</span></aside></div>
+<div id="endPanel" hidden><h2>🎉 Time's up!</h2><p class="final">⭐ <b id="finalScore">0</b></p><p>What rule will you change?</p><div class="row" style="justify-content:center"><button id="again">▶ Play again</button><button id="changeLevel">Levels</button></div></div>
+<div class="row controls" id="controls" hidden><button id="left" aria-label="Move left">◀</button><button id="run" aria-label="Hold to run">🏃 Run</button><button id="right" aria-label="Move right">▶</button><button id="resume">▶ Resume</button><span id="mic" hidden>🎤</span></div>
+<p id="status" class="status" role="status">Choose a level</p>
+<video id="camera" playsinline muted></video>
+</main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+/* ===== CONFIG — students edit these numbers and re-test ===== */
+const CONFIG = {
+  levels: { easy:{animalCount:2,itemCount:5}, medium:{animalCount:4,itemCount:3}, hard:{animalCount:6,itemCount:1} }, // objects per wave
+  speed: 10,            // world units per second (trial setting)
+  roundTime: 60,        // seconds per round (trial setting)
+  laneThreshold: 0.12,  // hip shift from centre, per cent of frame
+  kneeThreshold: 0.025, // knee lift relative to hips
+  runTimeout: 2000,     // ms since last step before "Keep running!"
+  onHit: 'none'         // 'none' | 'minusPoint' | 'pause1s' — students decide later
+};
+const $=s=>document.querySelector(s);
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===== 3D scene ===== */
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+$('#canvasWrap').append(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x9fdcf5);
+scene.fog=new THREE.Fog(0x9fdcf5,25,60);
+const camera=new THREE.PerspectiveCamera(58,3/2,.1,120);
+const CAM_BASE=new THREE.Vector3(0,3.4,7.2), CAM_LOOK=new THREE.Vector3(0,1.5,-9);
+scene.add(new THREE.HemisphereLight(0xffffff,0x5a8a3c,1.15));
+const sun=new THREE.DirectionalLight(0xfff2cc,1.3); sun.position.set(4,8,3); scene.add(sun);
+const laneX=[-2.2,0,2.2];
+const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.8,metalness:0});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,170),mat(0x76c043)); ground.rotation.x=-Math.PI/2; ground.position.z=-40; scene.add(ground);
+const track=new THREE.Mesh(new THREE.PlaneGeometry(7.6,140),mat(0x9adf63)); track.rotation.x=-Math.PI/2; track.position.z=-38; scene.add(track);
+const dashGeo=new THREE.BoxGeometry(.14,.02,1.5), dashMat=mat(0xffffff);
+const dashes=[];
+for(const x of [-1.1,1.1]) for(let k=0;k<13;k++){const d=new THREE.Mesh(dashGeo,dashMat);d.position.set(x,.02,-40+k*3.4);scene.add(d);dashes.push(d);}
+const shadowGeo=new THREE.CircleGeometry(.55,20), shadowMat=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.22});
+function blob(){const b=new THREE.Mesh(shadowGeo,shadowMat);b.rotation.x=-Math.PI/2;b.position.y=.03;return b;}
+/* scenery pools */
+const SCENERY=[];
+const trunkMat=mat(0x8a5a33), leafMat=mat(0x2e9e46), leafMat2=mat(0x3cb45a), bushMat=mat(0x51b84e);
+function makeTree(){const g=new THREE.Group();const t=new THREE.Mesh(new THREE.CylinderGeometry(.16,.22,.9),trunkMat);t.position.y=.45;g.add(t);const c=new THREE.Mesh(new THREE.ConeGeometry(.95,1.7,8),leafMat);c.position.y=1.6;g.add(c);const c2=new THREE.Mesh(new THREE.ConeGeometry(.65,1.2,8),leafMat2);c2.position.y=2.4;g.add(c2);return g;}
+function makeBush(){const b=new THREE.Mesh(new THREE.IcosahedronGeometry(.6,0),bushMat);b.position.y=.5;return b;}
+function makeFlower(){const g=new THREE.Group();const s=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.4),leafMat2);s.position.y=.2;g.add(s);const h=new THREE.Mesh(new THREE.SphereGeometry(.13,8,8),mat([0xff7bac,0xffd23f,0xffffff][Math.floor(Math.random()*3)]));h.position.y=.45;g.add(h);return g;}
+for(let i=0;i<16;i++){const o=i%3===0?makeTree():i%3===1?makeBush():makeFlower();const side=i%2?1:-1;o.position.set(side*(4.6+Math.random()*3),0,-46+i*3.4);scene.add(o);SCENERY.push(o);}
+const cloudMat=new THREE.MeshBasicMaterial({color:0xffffff});
+for(let i=0;i<5;i++){const g=new THREE.Group();for(let k=0;k<3;k++){const s=new THREE.Mesh(new THREE.SphereGeometry(.7+Math.random()*.4,10,10),cloudMat);s.position.set(k*.8-0.8,Math.random()*.3,0);g.add(s);}g.position.set((Math.random()-.5)*20,8.5+Math.random()*3,-10-i*7);g.userData.cloud=true;scene.add(g);SCENERY.push(g);}
+for(const [x,s] of [[-14,10],[2,13],[15,9]]){const m=new THREE.Mesh(new THREE.ConeGeometry(9,s,6),mat(0x5f9ea0));m.position.set(x,s/2-1,-52);scene.add(m);}
+/* player */
+const player=new THREE.Group(); scene.add(player);
+const skin=mat(0xffd9a8), shirt=mat(0xff8a3c), pants=mat(0x3a6ea5), capM=mat(0xe83d35);
+const torso=new THREE.Mesh(new THREE.BoxGeometry(.95,.85,.55),shirt); torso.position.y=1.05; player.add(torso);
+function limb(w,h,material,px,py){const p=new THREE.Group();p.position.set(px,py,0);const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,w),material);m.position.y=-h/2;p.add(m);player.add(p);return p;}
+const legL=limb(.26,.65,pants,-.25,.65), legR=limb(.26,.65,pants,.25,.65);
+const armL=limb(.2,.6,skin,-.6,1.4), armR=limb(.2,.6,skin,.6,1.4);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.44,16,16),skin); head.position.y=1.95; player.add(head);
+const capTop=new THREE.Mesh(new THREE.SphereGeometry(.46,16,8,0,Math.PI*2,0,Math.PI/2),capM); capTop.position.y=2.02; player.add(capTop);
+const capBrim=new THREE.Mesh(new THREE.BoxGeometry(.6,.07,.4),capM); capBrim.position.set(0,2.02,-.5); player.add(capBrim);
+const pShadow=blob(); player.add(pShadow); pShadow.position.y=.03;
+player.position.set(0,0,2);
+/* animals */
+const KINDS=[{b:0xff9a3d,s:0xffc46b,nose:0x7a3c12},{b:0xb0a8a0,s:0xd8d2c8,nose:0x5a5a5a},{b:0xffd93d,s:0xff8a00,nose:0xff8a00},{b:0xff9ecb,s:0xffc1dd,nose:0x7a3c50}];
+function makeAnimal(k){const g=new THREE.Group(),bm=mat(k.b),sm=mat(k.s);
+ const body=new THREE.Mesh(new THREE.BoxGeometry(1.05,.8,1.5),bm); body.position.y=.75; g.add(body);
+ const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.75,.7),bm); head.position.set(0,1.1,.95); g.add(head);
+ const snout=new THREE.Mesh(new THREE.BoxGeometry(.42,.3,.3),sm); snout.position.set(0,.98,1.38); g.add(snout);
+ for(const e of [-1,1]){const ear=new THREE.Mesh(new THREE.BoxGeometry(.22,.3,.12),sm);ear.position.set(e*.3,1.6,.9);g.add(ear);const eye=new THREE.Mesh(new THREE.SphereGeometry(.07,8,8),mat(0x222222));eye.position.set(e*.24,1.2,1.32);g.add(eye);}
+ const legs=[]; for(const [lx,lz] of [[-.34,.55],[.34,.55],[-.34,-.5],[.34,-.5]]){const l=new THREE.Mesh(new THREE.BoxGeometry(.22,.55,.22),bm);l.position.set(lx,.28,lz);g.add(l);legs.push(l);}
+ const tail=new THREE.Mesh(new THREE.BoxGeometry(.15,.15,.4),sm); tail.position.set(0,.9,-.85); g.add(tail);
+ g.add(blob()); g.rotation.y=Math.PI; g.userData.legs=legs; return g;}
+/* stars */
+const starShape=(()=>{const s=new THREE.Shape();for(let i=0;i<10;i++){const r=i%2?.2:.48,a=i/10*Math.PI*2-Math.PI/2;i?s.lineTo(Math.cos(a)*r,Math.sin(a)*r):s.moveTo(Math.cos(a)*r,Math.sin(a)*r);}s.closePath();return s;})();
+const starGeo=new THREE.ExtrudeGeometry(starShape,{depth:.14,bevelEnabled:false}); starGeo.center();
+const starMat=new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffa500,emissiveIntensity:.45,roughness:.35,metalness:.3});
+/* particles */
+const PARTS=[],pGeo=new THREE.BoxGeometry(.16,.16,.16),goldPM=new THREE.MeshBasicMaterial({color:0xffd23f}),redPM=new THREE.MeshBasicMaterial({color:0xff5a4e});
+for(let i=0;i<40;i++){const m=new THREE.Mesh(pGeo,goldPM);m.visible=false;scene.add(m);PARTS.push({m,v:new THREE.Vector3(),life:0});}
+function burst(x,y,z,m,n){let c=0;for(const p of PARTS){if(p.life>0)continue;p.m.material=m;p.m.visible=true;p.m.position.set(x,y,z);p.m.scale.setScalar(1);p.v.set((Math.random()-.5)*4,2.5+Math.random()*3,(Math.random()-.5)*4+3);p.life=.6;if(++c>=n)break;}}
+/* ===== audio (Web Audio, no files) ===== */
+let actx=null,muted=false;
+function ensureAudio(){if(!actx){try{actx=new AudioContext()}catch{}}if(actx?.state==='suspended')actx.resume();}
+function tone(f,d,type='sine',v=.18,delay=0){if(muted||!actx)return;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+d+.02);}
+const sfx={pickup(){tone(880,.12,'sine',.22);tone(1318,.16,'sine',.18,.07);},hit(){tone(140,.25,'square',.3);tone(90,.3,'sawtooth',.2,.02);},whoosh(){if(muted||!actx)return;const b=actx.createBuffer(1,actx.sampleRate*.12,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);const s=actx.createBufferSource();s.buffer=b;const f=actx.createBiquadFilter();f.type='bandpass';f.frequency.value=900;const g=actx.createGain();g.gain.value=.22;s.connect(f).connect(g).connect(actx.destination);s.start();},tick(){tone(620,.1,'triangle',.25);},go(){tone(880,.15,'triangle',.25);tone(1174,.3,'triangle',.25,.12);},end(){[523,659,784,1046].forEach((f,i)=>tone(f,.25,'triangle',.22,i*.15));}};
+$('#mute').onclick=()=>{muted=!muted;$('#mute').textContent=muted?'🔇':'🔊';};
+/* ===== game state ===== */
+let level='easy',state='ready',input='keyboard',lane=1,score=0,time=CONFIG.roundTime,objects=[],waveGap=0;
+let held=false,lastStep=0,previousLeg='',baseline=null,pose=null,stream=null,recognition=null;
+let hitUntil=0,flashUntil=0,trauma=0,popT=0,runPhase=0,laneV=0,followX=0,nextSpawnAt=0;
+const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+function voice(){if(!Speech)return;recognition=new Speech();recognition.lang='en-GB';recognition.continuous=true;recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(/\bstop\b/i.test(e.results[i][0].transcript))stopGame()};recognition.onerror=()=>{$('#mic').hidden=true};recognition.onend=()=>{if(state==='playing')try{recognition.start()}catch{}};try{recognition.start();$('#mic').hidden=false}catch{}}
+function stopGame(){if(state==='playing'||state==='countdown'){state='paused';held=false;$('#status').textContent='Paused';$('#keepRunning').hidden=true;recognition?.stop();$('#mic').hidden=true;}}
+function spawnWave(){const c=CONFIG.levels[level],types=[];for(let i=0;i<c.animalCount;i++)types.push('animal');for(let i=0;i<c.itemCount;i++)types.push('item');for(let i=types.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[types[i],types[j]]=[types[j],types[i]];}
+ const rows=Math.ceil(types.length/3);let lanes=[];for(let r=0;r<rows;r++){const l=[0,1,2];for(let i=l.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[l[i],l[j]]=[l[j],l[i]];}lanes.push(...l);}
+ objects=types.map((t,i)=>{const row=(i/3)|0;const mesh=t==='animal'?makeAnimal(KINDS[Math.floor(Math.random()*KINDS.length)]):new THREE.Mesh(starGeo,starMat);scene.add(mesh);return{mesh,type:t,lane:lanes[i],z:-26-row*5.5,done:false,squash:0};});
+ console.info('Wave counts',level,c.animalCount,c.itemCount);}
+function clearObjects(){for(const o of objects)scene.remove(o.mesh);objects=[];}
+function startRound(mode){ensureAudio();input=mode;lane=1;score=0;time=CONFIG.roundTime;baseline=null;previousLeg='';lastStep=0;hitUntil=0;trauma=0;laneV=0;clearObjects();spawnWave();
+ $('#setup').hidden=true;$('#endPanel').hidden=true;$('#hud').hidden=false;$('#stage').hidden=false;$('#controls').hidden=false;
+ $('#score').textContent='0';$('#time').textContent=Math.ceil(time);
+ state='countdown';voice();let n=3;const el=$('#countdown');el.hidden=false;el.textContent=n;sfx.tick();
+ const iv=setInterval(()=>{n--;if(n>0){el.textContent=n;sfx.tick();}else{el.textContent='GO!';sfx.go();clearInterval(iv);setTimeout(()=>{el.hidden=true;if(state==='countdown'){state='playing';lastStep=performance.now();}},450);}},900);
+ $('#status').textContent=mode==='camera'?'Stand centre':'Hold Run';}
+function endRound(){state='ended';sfx.end();recognition?.stop();$('#mic').hidden=true;$('#keepRunning').hidden=true;$('#controls').hidden=true;$('#finalScore').textContent=score;$('#endPanel').hidden=false;$('#status').textContent='Finished';}
+function move(d){if(state!=='playing')return;const nl=Math.max(0,Math.min(2,lane+d));if(nl!==lane){lane=nl;sfx.whoosh();}}
+/* controls */
+$('#stop').onclick=stopGame;
+$('#resume').onclick=()=>{if(state==='paused'){state='playing';lastStep=0;$('#status').textContent=input==='camera'?'Stand centre':'Hold Run';voice();}};
+document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;document.querySelectorAll('[data-level]').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+$('#left').onclick=()=>move(-1);$('#right').onclick=()=>move(1);
+const runBtn=$('#run');runBtn.onpointerdown=e=>{e.preventDefault();held=true;runBtn.setPointerCapture(e.pointerId);};runBtn.onpointerup=runBtn.onpointercancel=()=>held=false;
+window.onkeydown=e=>{if(e.code==='Escape'){stopGame();return;}if(e.repeat)return;if(e.code==='ArrowLeft'||e.code==='KeyA')move(-1);if(e.code==='ArrowRight'||e.code==='KeyD')move(1);if(e.code==='Space'){e.preventDefault();held=true;}};
+window.onkeyup=e=>{if(e.code==='Space')held=false;};
+window.onblur=()=>{held=false;stopGame();};
+$('#again').onclick=()=>startRound(input);
+$('#changeLevel').onclick=()=>{state='ready';clearObjects();$('#endPanel').hidden=true;$('#hud').hidden=true;$('#stage').hidden=true;$('#controls').hidden=true;$('#setup').hidden=false;$('#status').textContent='Choose a level';};
+$('#howto').onerror=()=>{$('#howto').hidden=true;};$('#howto').onloadeddata=()=>{$('#videoFallback').hidden=true;};
+/* camera pose (lazy) */
+const cam=$('#camera');
+async function startCamera(){try{if(!window.isSecureContext)throw Error('Camera needs HTTPS');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});cam.srcObject=stream;await cam.play();if(!window.Pose){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';s.onload=res;s.onerror=rej;document.head.append(s);});}
+ pose=new Pose({locateFile:f=>'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/'+f});pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:.6,minTrackingConfidence:.6});pose.onResults(r=>{const p=r.poseLandmarks;if(!p||p[23].visibility<.6||p[24].visibility<.6||p[25].visibility<.6||p[26].visibility<.6)return;if(state!=='playing'&&state!=='countdown')return;const hip=(p[23].x+p[24].x)/2;if(baseline===null)baseline=hip;const shift=baseline-hip;lane=shift<-CONFIG.laneThreshold?0:shift>CONFIG.laneThreshold?2:1;const l=p[23].y-p[25].y,rt=p[24].y-p[26].y;const leg=l-rt>CONFIG.kneeThreshold?'left':rt-l>CONFIG.kneeThreshold?'right':'';if(leg&&leg!==previousLeg){if(previousLeg)lastStep=performance.now();previousLeg=leg;}});
+ startRound('camera');(async function detect(){if(!stream)return;try{await pose.send({image:cam})}catch{}requestAnimationFrame(detect);})();}
+ catch(e){stream?.getTracks().forEach(t=>t.stop());stream=null;$('#status').textContent='Camera unavailable — use Play';}}
+$('#cameraStart').onclick=startCamera;$('#keyboardStart').onclick=()=>startRound('keyboard');
+/* resize */
+function resize(){const w=$('#canvasWrap').clientWidth||640,h=w*2/3;renderer.setSize(w,h,false);renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe($('#canvasWrap'));resize();
+/* ===== main loop ===== */
+const clock=new THREE.Clock();
+function effActive(now){const running=input==='camera'?now-lastStep<CONFIG.runTimeout:held;return state==='playing'&&running&&now>hitUntil;}
+renderer.setAnimationLoop(()=>{
+ const dt=Math.min(clock.getDelta(),.05),now=performance.now(),t=clock.elapsedTime;
+ const active=effActive(now);
+ /* world scroll (always gentle drift when ready, full speed when active) */
+ const ws=state==='ready'?1.2:active?CONFIG.speed:0;
+ for(const d of dashes){d.position.z+=ws*dt;if(d.position.z>9)d.position.z-=44.2;}
+ for(const s of SCENERY){s.position.z+=ws*dt*(s.userData.cloud?.25:1);if(s.position.z>9)s.position.z-=56;}
+ /* objects */
+ if(state==='playing'){
+  if(active)time=Math.max(0,time-dt);
+  for(const o of objects){if(o.done)continue;o.z+=ws*dt;
+   if(o.type==='animal'){o.mesh.position.set(laneX[o.lane],Math.abs(Math.sin(o.z*1.4))*.16,o.z);o.mesh.userData.legs.forEach((l,i)=>l.rotation.x=Math.sin(now*.02+i*Math.PI/2)*.7);if(o.squash>0){o.squash=Math.max(0,o.squash-dt*3);o.mesh.scale.y=1-.45*o.squash;}}
+   else{o.mesh.position.set(laneX[o.lane],.75+Math.sin(t*2.4+o.z)*.09,o.z);o.mesh.rotation.y+=dt*3;}
+   if(o.z>1.05&&o.z<2.95&&o.lane===lane){o.done=true;
+    if(o.type==='item'){o.mesh.visible=false;score++;burst(laneX[o.lane],1.2,2,goldPM,10);sfx.pickup();popT=1;$('#score').textContent=score;const b=$('#score');b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');$('#status').textContent='Running ✓';}
+    else{burst(laneX[o.lane],1,2,redPM,8);sfx.hit();o.squash=1;flashUntil=now+260;if(!reduceMotion)trauma=Math.min(1,trauma+.45);if(CONFIG.onHit==='minusPoint')score=Math.max(0,score-1);if(CONFIG.onHit==='pause1s')hitUntil=now+1000;$('#score').textContent=score;}}}
+  if(objects.length&&objects.every(o=>o.done)){waveGap+=dt;if(waveGap>.7){waveGap=0;clearObjects();spawnWave();}}
+  if(time<=0)endRound();
+ }
+ /* player animation */
+ runPhase=active?runPhase+dt*11:runPhase;
+ const sw=active?1:0;
+ legL.rotation.x+=((Math.sin(runPhase)*.95*sw)-legL.rotation.x)*Math.min(1,dt*12);
+ legR.rotation.x+=((-Math.sin(runPhase)*.95*sw)-legR.rotation.x)*Math.min(1,dt*12);
+ armL.rotation.x+=((-Math.sin(runPhase)*.8*sw)-armL.rotation.x)*Math.min(1,dt*12);
+ armR.rotation.x+=((Math.sin(runPhase)*.8*sw)-armR.rotation.x)*Math.min(1,dt*12);
+ popT=Math.max(0,popT-dt*3);
+ player.scale.set(1+popT*.12,1+popT*.3,1+popT*.12);
+ const targetX=laneX[lane];
+ laneV+=(targetX-player.position.x)*90*dt;laneV*=Math.exp(-9*dt);player.position.x+=laneV*dt;
+ player.position.y=active?Math.abs(Math.sin(runPhase))*.1:0;
+ player.rotation.z=Math.max(-.4,Math.min(.4,-laneV*.05));
+ /* particles */
+ for(const p of PARTS){if(p.life<=0)continue;p.life-=dt;p.v.y-=9*dt;p.m.position.addScaledVector(p.v,dt);p.m.scale.setScalar(Math.max(.01,p.life/.6));if(p.life<=0)p.m.visible=false;}
+ /* camera follow + shake */
+ followX+=(player.position.x*.45-followX)*Math.min(1,dt*4);
+ trauma=Math.max(0,trauma-1.6*dt);const sh=reduceMotion?0:trauma*trauma;
+ camera.position.set(CAM_BASE.x+followX+sh*.35*Math.sin(t*47),CAM_BASE.y+sh*.28*Math.sin(t*39),CAM_BASE.z);
+ camera.lookAt(CAM_LOOK.x+followX,CAM_LOOK.y,CAM_LOOK.z);
+ camera.rotation.z+=sh*.05*Math.sin(t*33);
+ /* HUD */
+ if(state==='playing'){$('#time').textContent=Math.ceil(time);
+  $('#keepRunning').hidden=active;
+  if(!active)$('#status').textContent=now>hitUntil?'Keep running!':'Ouch!';
+  else if(input==='keyboard')$('#status').textContent='Running ✓';
+  $('#flash').style.opacity=now<flashUntil?.55:0;}
+ renderer.render(scene,camera);
+ window.__dodge={get s(){return{state,lane,level,input,score,time:+time.toFixed(1),x:+player.position.x.toFixed(2),y:+player.position.y.toFixed(2),active,held,activeObjs:objects.filter(o=>!o.done).length}}};
+});
+</script></body></html>
