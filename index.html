@@ -25,9 +25,13 @@ const CONFIG = {
   levels: { easy:{animalCount:2,itemCount:5}, medium:{animalCount:4,itemCount:3}, hard:{animalCount:6,itemCount:1} }, // objects per wave
   speed: 10,            // world units per second (trial setting)
   roundTime: 60,        // seconds per round (trial setting)
-  laneThreshold: 0.12,  // hip shift from centre, per cent of frame
-  kneeThreshold: 0.025, // knee lift relative to hips
+  laneThreshold: 0.45,  // hip shift from centre, per cent of frame
+  kneeThreshold: 0.14, // knee lift relative to hips
   runTimeout: 2000,     // ms since last step before "Keep running!"
+  calibrationMs: 2000, // stand still before playing
+  trackingTimeout: 400, // stop when pose updates are stale
+  minStepMs: 180, // reject very fast jitter
+  maxStepMs: 1200, // require a steady alternating rhythm
   onHit: 'none'         // 'none' | 'minusPoint' | 'pause1s' — students decide later
 };
 const $=s=>document.querySelector(s);
@@ -101,27 +105,27 @@ const sfx={pickup(){tone(880,.12,'sine',.22);tone(1318,.16,'sine',.18,.07);},hit
 $('#mute').onclick=()=>{muted=!muted;$('#mute').textContent=muted?'🔇':'🔊';};
 /* ===== game state ===== */
 let level='easy',state='ready',input='keyboard',lane=1,score=0,time=CONFIG.roundTime,objects=[],waveGap=0;
-let held=false,lastStep=0,previousLeg='',baseline=null,pose=null,stream=null,recognition=null;
+let held=false,lastStep=-Infinity,previousLeg='',baseline=null,pose=null,stream=null,recognition=null;
 let hitUntil=0,flashUntil=0,trauma=0,popT=0,runPhase=0,laneV=0,followX=0,nextSpawnAt=0;
 const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
 function voice(){if(!Speech)return;recognition=new Speech();recognition.lang='en-GB';recognition.continuous=true;recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(/\bstop\b/i.test(e.results[i][0].transcript))stopGame()};recognition.onerror=()=>{$('#mic').hidden=true};recognition.onend=()=>{if(state==='playing')try{recognition.start()}catch{}};try{recognition.start();$('#mic').hidden=false}catch{}}
-function stopGame(){if(state==='playing'||state==='countdown'){state='paused';held=false;$('#status').textContent='Paused';$('#keepRunning').hidden=true;recognition?.stop();$('#mic').hidden=true;}}
+function stopGame(){if(state==='playing'||state==='countdown'||state==='calibrating'){state='paused';held=false;$('#status').textContent='Paused';$('#keepRunning').hidden=true;recognition?.stop();$('#mic').hidden=true;}}
 function spawnWave(){const c=CONFIG.levels[level],types=[];for(let i=0;i<c.animalCount;i++)types.push('animal');for(let i=0;i<c.itemCount;i++)types.push('item');for(let i=types.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[types[i],types[j]]=[types[j],types[i]];}
  const rows=Math.ceil(types.length/3);let lanes=[];for(let r=0;r<rows;r++){const l=[0,1,2];for(let i=l.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[l[i],l[j]]=[l[j],l[i]];}lanes.push(...l);}
  objects=types.map((t,i)=>{const row=(i/3)|0;const mesh=t==='animal'?makeAnimal(KINDS[Math.floor(Math.random()*KINDS.length)]):new THREE.Mesh(starGeo,starMat);scene.add(mesh);return{mesh,type:t,lane:lanes[i],z:-26-row*5.5,done:false,squash:0};});
  console.info('Wave counts',level,c.animalCount,c.itemCount);}
 function clearObjects(){for(const o of objects)scene.remove(o.mesh);objects=[];}
-function startRound(mode){ensureAudio();input=mode;lane=1;score=0;time=CONFIG.roundTime;baseline=null;previousLeg='';lastStep=0;hitUntil=0;trauma=0;laneV=0;clearObjects();spawnWave();
+function startRound(mode){ensureAudio();input=mode;lane=1;score=0;time=CONFIG.roundTime;baseline=null;resetMotion();waveGap=0;held=false;hitUntil=0;trauma=0;laneV=0;clearObjects();spawnWave();
  $('#setup').hidden=true;$('#endPanel').hidden=true;$('#hud').hidden=false;$('#stage').hidden=false;$('#controls').hidden=false;
  $('#score').textContent='0';$('#time').textContent=Math.ceil(time);
- state='countdown';voice();let n=3;const el=$('#countdown');el.hidden=false;el.textContent=n;sfx.tick();
- const iv=setInterval(()=>{n--;if(n>0){el.textContent=n;sfx.tick();}else{el.textContent='GO!';sfx.go();clearInterval(iv);setTimeout(()=>{el.hidden=true;if(state==='countdown'){state='playing';lastStep=performance.now();}},450);}},900);
+ state=mode==='camera'?'calibrating':'countdown';voice();let n=3;const el=$('#countdown');el.hidden=false;el.textContent=n;sfx.tick();
+ const iv=setInterval(()=>{if(state==='calibrating')return;if(state!=='countdown'){clearInterval(iv);el.hidden=true;return;}n--;if(n>0){el.textContent=n;sfx.tick();}else{el.textContent='GO!';sfx.go();clearInterval(iv);setTimeout(()=>{el.hidden=true;if(state==='countdown'){state='playing';lastStep=-Infinity;}},450);}},900);
  $('#status').textContent=mode==='camera'?'Stand centre':'Hold Run';}
 function endRound(){state='ended';sfx.end();recognition?.stop();$('#mic').hidden=true;$('#keepRunning').hidden=true;$('#controls').hidden=true;$('#finalScore').textContent=score;$('#endPanel').hidden=false;$('#status').textContent='Finished';}
 function move(d){if(state!=='playing')return;const nl=Math.max(0,Math.min(2,lane+d));if(nl!==lane){lane=nl;sfx.whoosh();}}
 /* controls */
 $('#stop').onclick=stopGame;
-$('#resume').onclick=()=>{if(state==='paused'){state='playing';lastStep=0;$('#status').textContent=input==='camera'?'Stand centre':'Hold Run';voice();}};
+$('#resume').onclick=()=>{if(state==='paused'){if(input==='camera'&&baseline===null){startRound('camera');return;}state='playing';lastStep=-Infinity;$('#status').textContent=input==='camera'?'Stand centre':'Hold Run';voice();}};
 document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;document.querySelectorAll('[data-level]').forEach(x=>x.setAttribute('aria-pressed',x===b));});
 $('#left').onclick=()=>move(-1);$('#right').onclick=()=>move(1);
 const runBtn=$('#run');runBtn.onpointerdown=e=>{e.preventDefault();held=true;runBtn.setPointerCapture(e.pointerId);};runBtn.onpointerup=runBtn.onpointercancel=()=>held=false;
@@ -129,21 +133,60 @@ window.onkeydown=e=>{if(e.code==='Escape'){stopGame();return;}if(e.repeat)return
 window.onkeyup=e=>{if(e.code==='Space')held=false;};
 window.onblur=()=>{held=false;stopGame();};
 $('#again').onclick=()=>startRound(input);
-$('#changeLevel').onclick=()=>{state='ready';clearObjects();$('#endPanel').hidden=true;$('#hud').hidden=true;$('#stage').hidden=true;$('#controls').hidden=true;$('#setup').hidden=false;$('#status').textContent='Choose a level';};
+$('#changeLevel').onclick=()=>{state='ready';clearObjects();$('#endPanel').hidden=true;$('#hud').hidden=true;$('#stage').hidden=true;$('#controls').hidden=true;$('#setup').hidden=false;stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;$('#status').textContent='Choose a level';};
 $('#howto').onerror=()=>{$('#howto').hidden=true;};$('#howto').onloadeddata=()=>{$('#videoFallback').hidden=true;};
 /* camera pose (lazy) */
 const cam=$('#camera');
-async function startCamera(){try{if(!window.isSecureContext)throw Error('Camera needs HTTPS');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});cam.srcObject=stream;await cam.play();if(!window.Pose){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';s.onload=res;s.onerror=rej;document.head.append(s);});}
- pose=new Pose({locateFile:f=>'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/'+f});pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:.6,minTrackingConfidence:.6});pose.onResults(r=>{const p=r.poseLandmarks;if(!p||p[23].visibility<.6||p[24].visibility<.6||p[25].visibility<.6||p[26].visibility<.6)return;if(state!=='playing'&&state!=='countdown')return;const hip=(p[23].x+p[24].x)/2;if(baseline===null)baseline=hip;const shift=baseline-hip;lane=shift<-CONFIG.laneThreshold?0:shift>CONFIG.laneThreshold?2:1;const l=p[23].y-p[25].y,rt=p[24].y-p[26].y;const leg=l-rt>CONFIG.kneeThreshold?'left':rt-l>CONFIG.kneeThreshold?'right':'';if(leg&&leg!==previousLeg){if(previousLeg)lastStep=performance.now();previousLeg=leg;}});
+async function startCamera(){if(stream)return;$('#cameraStart').disabled=true;try{if(!window.isSecureContext)throw Error('Camera needs HTTPS');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});cam.srcObject=stream;await cam.play();if(!window.Pose){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';s.onload=res;s.onerror=rej;document.head.append(s);});}
+ pose=new Pose({locateFile:f=>'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/'+f});pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:.6,minTrackingConfidence:.6});pose.onResults(r=>updateMotion(r.poseLandmarks,performance.now()));
  startRound('camera');(async function detect(){if(!stream)return;try{await pose.send({image:cam})}catch{}requestAnimationFrame(detect);})();}
- catch(e){stream?.getTracks().forEach(t=>t.stop());stream=null;$('#status').textContent='Camera unavailable — use Play';}}
-$('#cameraStart').onclick=startCamera;$('#keyboardStart').onclick=()=>startRound('keyboard');
+ catch(e){stream?.getTracks().forEach(t=>t.stop());stream=null;$('#status').textContent='Camera unavailable — use Play';}finally{$('#cameraStart').disabled=false;}}
+$('#cameraStart').onclick=startCamera;$('#keyboardStart').onclick=()=>{stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;startRound('keyboard');};
 /* resize */
 function resize(){const w=$('#canvasWrap').clientWidth||640,h=w*2/3;renderer.setSize(w,h,false);renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe($('#canvasWrap'));resize();
 /* ===== main loop ===== */
 const clock=new THREE.Clock();
-function effActive(now){const running=input==='camera'?now-lastStep<CONFIG.runTimeout:held;return state==='playing'&&running&&now>hitUntil;}
+let lastPose=-Infinity,calibrationStart=null,calibrationSamples=[],restKnee=0,bodyScale=1,lastLift=-Infinity,stepCount=0,filteredHip=null;
+function resetMotion(){lastStep=-Infinity;lastPose=-Infinity;calibrationStart=null;calibrationSamples=[];lastLift=-Infinity;stepCount=0;previousLeg='';filteredHip=null;}
+function updateMotion(p,now){
+ if(!['playing','countdown','calibrating'].includes(state))return;
+ const ids=[11,12,23,24,25,26,27,28];
+ if(!p||ids.some(i=>!p[i]||(p[i].visibility??0)<.65)){lastPose=-Infinity;lastStep=-Infinity;stepCount=0;previousLeg='';calibrationStart=null;calibrationSamples=[];return;}
+ lastPose=now;
+ const hip=(p[23].x+p[24].x)/2;
+ const scale=Math.hypot((p[11].x+p[12].x)/2-hip,(p[11].y+p[12].y)/2-(p[23].y+p[24].y)/2);
+ if(scale<.06){lastStep=-Infinity;return;}
+ const knees=(p[23].y-p[25].y-p[24].y+p[26].y)/scale;
+ if(state==='calibrating'){
+  if(calibrationStart===null)calibrationStart=now;
+  calibrationSamples.push({hip,scale,knees});
+  const range=Math.max(...calibrationSamples.map(x=>x.hip))-Math.min(...calibrationSamples.map(x=>x.hip));
+  if(range>scale*.15){calibrationStart=now;calibrationSamples=[{hip,scale,knees}];}
+  $('#countdown').hidden=false;$('#countdown').textContent='Stand still';
+  if(now-calibrationStart>=CONFIG.calibrationMs&&calibrationSamples.length>=15){
+   const mean=k=>calibrationSamples.reduce((s,x)=>s+x[k],0)/calibrationSamples.length;
+   baseline=mean('hip');bodyScale=mean('scale');restKnee=mean('knees');filteredHip=baseline;
+   state='countdown';$('#countdown').textContent='3';
+  }
+  return;
+ }
+ filteredHip=filteredHip===null?hip:filteredHip*.65+hip*.35;
+ const shift=(baseline-filteredHip)/bodyScale;
+ const threshold=CONFIG.laneThreshold;
+ const next=shift < -threshold?0:shift>threshold?2:Math.abs(shift)<threshold*.65?1:lane;
+ if(next!==lane){lane=next;sfx.whoosh();}
+ const difference=knees-restKnee;
+ const leg=difference>CONFIG.kneeThreshold?'left':difference < -CONFIG.kneeThreshold?'right':'';
+ if(leg&&leg!==previousLeg){
+  const gap=now-lastLift;
+  if(gap<CONFIG.minStepMs)return;
+  stepCount=gap<=CONFIG.maxStepMs?stepCount+1:1;
+  previousLeg=leg;lastLift=now;
+  if(stepCount>=3)lastStep=now;
+ }
+}
+function effActive(now){const running=input==='camera'?baseline!==null&&now-lastPose<CONFIG.trackingTimeout&&now-lastStep<CONFIG.runTimeout:held;return state==='playing'&&running&&now>hitUntil;}
 renderer.setAnimationLoop(()=>{
  const dt=Math.min(clock.getDelta(),.05),now=performance.now(),t=clock.elapsedTime;
  const active=effActive(now);
@@ -157,10 +200,11 @@ renderer.setAnimationLoop(()=>{
   for(const o of objects){if(o.done)continue;o.z+=ws*dt;
    if(o.type==='animal'){o.mesh.position.set(laneX[o.lane],Math.abs(Math.sin(o.z*1.4))*.16,o.z);o.mesh.userData.legs.forEach((l,i)=>l.rotation.x=Math.sin(now*.02+i*Math.PI/2)*.7);if(o.squash>0){o.squash=Math.max(0,o.squash-dt*3);o.mesh.scale.y=1-.45*o.squash;}}
    else{o.mesh.position.set(laneX[o.lane],.75+Math.sin(t*2.4+o.z)*.09,o.z);o.mesh.rotation.y+=dt*3;}
-   if(o.z>1.05&&o.z<2.95&&o.lane===lane){o.done=true;
+   if(o.z>4){o.done=true;o.mesh.visible=false;continue;}
+   if(active&&o.z>1.05&&o.z<2.95&&o.lane===lane){o.done=true;
     if(o.type==='item'){o.mesh.visible=false;score++;burst(laneX[o.lane],1.2,2,goldPM,10);sfx.pickup();popT=1;$('#score').textContent=score;const b=$('#score');b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');$('#status').textContent='Running ✓';}
     else{burst(laneX[o.lane],1,2,redPM,8);sfx.hit();o.squash=1;flashUntil=now+260;if(!reduceMotion)trauma=Math.min(1,trauma+.45);if(CONFIG.onHit==='minusPoint')score=Math.max(0,score-1);if(CONFIG.onHit==='pause1s')hitUntil=now+1000;$('#score').textContent=score;}}}
-  if(objects.length&&objects.every(o=>o.done)){waveGap+=dt;if(waveGap>.7){waveGap=0;clearObjects();spawnWave();}}
+  if(objects.length&&objects.every(o=>o.done)){waveGap+=dt;if(active&&waveGap>.7){waveGap=0;clearObjects();spawnWave();}}
   if(time<=0)endRound();
  }
  /* player animation */
@@ -187,6 +231,7 @@ renderer.setAnimationLoop(()=>{
  /* HUD */
  if(state==='playing'){$('#time').textContent=Math.ceil(time);
   $('#keepRunning').hidden=active;
+  $('#keepRunning').innerHTML=input==='camera'&&now-lastPose>=CONFIG.trackingTimeout?'📷<br>Full body visible': '🏃<br>Keep running!';
   if(!active)$('#status').textContent=now>hitUntil?'Keep running!':'Ouch!';
   else if(input==='keyboard')$('#status').textContent='Running ✓';
   $('#flash').style.opacity=now<flashUntil?.55:0;}
