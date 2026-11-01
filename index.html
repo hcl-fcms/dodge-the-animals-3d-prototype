@@ -1,5 +1,5 @@
 <!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dodge the Animals — 3D</title><style>
-*{box-sizing:border-box}body{margin:0;background:#0d2b22;color:#fff8d8;font:700 18px "Trebuchet MS",sans-serif}main{max-width:1100px;margin:auto;padding:10px}h1{font-size:clamp(26px,4.5vw,44px);margin:4px 0}.tag{opacity:.7;font-size:14px}button{font:inherit;border:3px solid #0d2b22;border-radius:14px;padding:12px;cursor:pointer;touch-action:none;background:#ffe49a;color:#0d2b22}button:focus-visible{outline:4px solid #fff}button[aria-pressed=true]{background:#87dfb2}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.stats{justify-content:space-between;margin:8px 0}.score{font-size:30px;color:#fff}.score b{display:inline-block;transition:transform .15s}.score b.pop{transform:scale(1.6)}.stop{background:#e83d35;color:#fff;font-size:24px;min-width:110px}#stage{position:relative;border-radius:16px;overflow:hidden;background:#9fdcf5}#canvasWrap{aspect-ratio:3/2;width:min(100%,calc((100vh - 175px)*1.5));margin:0 auto}#canvasWrap canvas{display:block;width:100%;height:100%}#flash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,#e8352c 100%);opacity:0;transition:opacity .18s;pointer-events:none}#keepRunning{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(28px,5vw,54px);color:#fff;text-shadow:0 3px 0 #0d2b22;background:rgba(13,43,34,.35);pointer-events:none}#countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(60px,12vw,140px);color:#ffd23f;text-shadow:0 4px 0 #0d2b22;pointer-events:none}.help{position:absolute;right:8px;bottom:8px;background:#0d2b22ef;border-radius:12px;padding:8px;font-size:13px;max-width:170px}.help p{margin:4px 0}.help video{width:100%;max-height:64px}#endPanel{text-align:center;background:#0f3d30;border-radius:16px;padding:18px;margin-top:10px}#endPanel h2{margin:6px}#endPanel .final{font-size:44px;color:#ffd23f}.notice{font-size:14px;opacity:.85}.status{min-height:26px;color:#ffe49a}.controls button{min-width:64px;min-height:52px}#mic{font-size:22px}#camera{display:none}[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:#0d2b22;color:#fff8d8;font:700 18px "Trebuchet MS",sans-serif}main{max-width:1100px;margin:auto;padding:10px}h1{font-size:clamp(26px,4.5vw,44px);margin:4px 0}.tag{opacity:.7;font-size:14px}button{font:inherit;border:3px solid #0d2b22;border-radius:14px;padding:12px;cursor:pointer;touch-action:none;background:#ffe49a;color:#0d2b22}button:focus-visible{outline:4px solid #fff}button[aria-pressed=true]{background:#87dfb2}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.stats{justify-content:space-between;margin:8px 0}.score{font-size:30px;color:#fff}.score b{display:inline-block;transition:transform .15s}.score b.pop{transform:scale(1.6)}.stop{background:#e83d35;color:#fff;font-size:24px;min-width:110px}#stage{position:relative;border-radius:16px;overflow:hidden;background:#9fdcf5}#canvasWrap{aspect-ratio:3/2;width:min(100%,calc((100vh - 175px)*1.5));margin:0 auto}#canvasWrap canvas{display:block;width:100%;height:100%}#flash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,#e8352c 100%);opacity:0;transition:opacity .18s;pointer-events:none}#keepRunning{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(28px,5vw,54px);color:#fff;text-shadow:0 3px 0 #0d2b22;background:rgba(13,43,34,.35);pointer-events:none}#countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(60px,12vw,140px);color:#ffd23f;text-shadow:0 4px 0 #0d2b22;pointer-events:none}.help{position:absolute;right:8px;bottom:8px;background:#0d2b22ef;border-radius:12px;padding:8px;font-size:13px;max-width:170px}.help p{margin:4px 0}.help video{width:100%;max-height:64px}#endPanel{text-align:center;background:#0f3d30;border-radius:16px;padding:18px;margin-top:10px}#endPanel h2{margin:6px}#endPanel .final{font-size:44px;color:#ffd23f}.notice{font-size:14px;opacity:.85}.status{min-height:26px;color:#ffe49a}.controls button{min-width:64px;min-height:52px}#mic{font-size:22px}#cameraPreview{position:absolute;top:8px;left:8px;width:clamp(132px,22vw,220px);z-index:3;border:3px solid #ffcf66;border-radius:12px;background:#0d2b22;overflow:hidden;font-size:14px;text-align:center;pointer-events:none}#cameraPreview[data-tracked=true]{border-color:#87dfb2}#cameraView{position:relative;background:#071710}#camera{display:block;width:100%;height:clamp(100px,18vw,160px);object-fit:contain;transform:scaleX(-1)}#frameGuide{position:absolute;inset:8% 28%;border:2px dashed #ffffff99;border-radius:40%;pointer-events:none}#cameraPreview p{margin:4px}#cameraHint{font-size:12px;color:#ffe49a}@media(max-height:500px){#cameraPreview{width:132px}#camera{height:92px}}[hidden]{display:none!important}
 </style></head><body><main>
 <header class="row"><h1>🐾 Dodge the Animals</h1><span class="tag">Group A · 3D</span></header>
 <section id="setup">
@@ -8,14 +8,13 @@
  <div class="row" id="levels" style="margin:10px 0"><button data-level="easy" aria-pressed="true">Easy</button><button data-level="medium" aria-pressed="false">Medium</button><button data-level="hard" aria-pressed="false">Hard</button></div>
  <p class="notice">📷 Camera stays on this device</p>
  <div class="row" style="margin:10px 0"><button id="cameraStart">📷 Camera</button><button id="keyboardStart">⌨️ Play</button></div>
- <p class="notice">🎤 Voice stop may use an online service.</p>
+ <p class="notice">👨‍🏫 Adult nearby · Stop anytime · Rest anytime</p><label class="notice"><input type="checkbox" id="voiceOptIn"> 🎤 Voice stop</label><p class="notice">Adult permission: voice may go online. STOP always works.</p>
 </section>
 <div class="row stats" id="hud" hidden><span class="score">⭐ <b id="score">0</b></span><span>⏱ <b id="time">60</b></span><span class="row"><button id="mute" aria-label="Sound on or off">🔊</button><button class="stop" id="stop">■ STOP</button></span></div>
-<div id="stage" hidden><div id="canvasWrap"></div><div id="flash"></div><div id="keepRunning" hidden>🏃<br>Keep running!</div><div id="countdown" hidden>3</div><aside class="help"><strong>How to play</strong><p>🏃 Run ↔️ Dodge ⭐ Collect</p><video id="howto" controls preload="metadata" src="howto.mp4"></video><span id="videoFallback">Video coming soon</span></aside></div>
+<div id="stage" hidden><aside id="cameraPreview" aria-label="Live camera preview" hidden data-tracked="false"><div id="cameraView"><video id="camera" playsinline muted></video><div id="frameGuide"></div></div><p id="frameState" role="status">📷 Tracking lost</p><p id="cameraHint">Show full body</p></aside><div id="canvasWrap"></div><div id="flash"></div><div id="keepRunning" hidden>🏃<br>Keep running!</div><div id="countdown" hidden>3</div><aside class="help"><strong>How to play</strong><p>🏃 Run ↔️ Dodge ⭐ Collect</p><video id="howto" controls preload="metadata" src="howto.mp4"></video><span id="videoFallback">Video coming soon</span></aside></div>
 <div id="endPanel" hidden><h2>🎉 Time's up!</h2><p class="final">⭐ <b id="finalScore">0</b></p><p>What rule will you change?</p><div class="row" style="justify-content:center"><button id="again">▶ Play again</button><button id="changeLevel">Levels</button></div></div>
 <div class="row controls" id="controls" hidden><button id="left" aria-label="Move left">◀</button><button id="run" aria-label="Hold to run">🏃 Run</button><button id="right" aria-label="Move right">▶</button><button id="resume">▶ Resume</button><span id="mic" hidden>🎤</span></div>
 <p id="status" class="status" role="status">Choose a level</p>
-<video id="camera" playsinline muted></video>
 </main>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
 <script type="module">
@@ -108,7 +107,9 @@ let level='easy',state='ready',input='keyboard',lane=1,score=0,time=CONFIG.round
 let held=false,lastStep=-Infinity,previousLeg='',baseline=null,pose=null,stream=null,recognition=null;
 let hitUntil=0,flashUntil=0,trauma=0,popT=0,runPhase=0,laneV=0,followX=0,nextSpawnAt=0;
 const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
-function voice(){if(!Speech)return;recognition=new Speech();recognition.lang='en-GB';recognition.continuous=true;recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(/\bstop\b/i.test(e.results[i][0].transcript))stopGame()};recognition.onerror=()=>{$('#mic').hidden=true};recognition.onend=()=>{if(state==='playing')try{recognition.start()}catch{}};try{recognition.start();$('#mic').hidden=false}catch{}}
+$('#voiceOptIn').disabled=!Speech;
+$('#voiceOptIn').onchange=()=>{if(!$('#voiceOptIn').checked){recognition?.stop();$('#mic').hidden=true;}};
+function voice(){if(!Speech||!$('#voiceOptIn').checked)return;recognition?.abort();recognition=new Speech();recognition.lang='en-GB';recognition.continuous=true;recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(/\bstop\b/i.test(e.results[i][0].transcript))stopGame()};recognition.onerror=()=>{$('#mic').hidden=true};recognition.onend=()=>{if(state==='playing'&&$('#voiceOptIn').checked)try{recognition.start()}catch{}};try{recognition.start();$('#mic').hidden=false}catch{}}
 function stopGame(){if(state==='playing'||state==='countdown'||state==='calibrating'){state='paused';held=false;$('#status').textContent='Paused';$('#keepRunning').hidden=true;recognition?.stop();$('#mic').hidden=true;}}
 function spawnWave(){const c=CONFIG.levels[level],types=[];for(let i=0;i<c.animalCount;i++)types.push('animal');for(let i=0;i<c.itemCount;i++)types.push('item');for(let i=types.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[types[i],types[j]]=[types[j],types[i]];}
  const rows=Math.ceil(types.length/3);let lanes=[];for(let r=0;r<rows;r++){const l=[0,1,2];for(let i=l.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[l[i],l[j]]=[l[j],l[i]];}lanes.push(...l);}
@@ -116,6 +117,7 @@ function spawnWave(){const c=CONFIG.levels[level],types=[];for(let i=0;i<c.anima
  console.info('Wave counts',level,c.animalCount,c.itemCount);}
 function clearObjects(){for(const o of objects)scene.remove(o.mesh);objects=[];}
 function startRound(mode){ensureAudio();input=mode;lane=1;score=0;time=CONFIG.roundTime;baseline=null;resetMotion();waveGap=0;held=false;hitUntil=0;trauma=0;laneV=0;clearObjects();spawnWave();
+ $('#cameraPreview').hidden=mode!=='camera';
  $('#setup').hidden=true;$('#endPanel').hidden=true;$('#hud').hidden=false;$('#stage').hidden=false;$('#controls').hidden=false;
  $('#score').textContent='0';$('#time').textContent=Math.ceil(time);
  state=mode==='camera'?'calibrating':'countdown';voice();let n=3;const el=$('#countdown');el.hidden=false;el.textContent=n;sfx.tick();
@@ -132,8 +134,9 @@ const runBtn=$('#run');runBtn.onpointerdown=e=>{e.preventDefault();held=true;run
 window.onkeydown=e=>{if(e.code==='Escape'){stopGame();return;}if(e.repeat)return;if(e.code==='ArrowLeft'||e.code==='KeyA')move(-1);if(e.code==='ArrowRight'||e.code==='KeyD')move(1);if(e.code==='Space'){e.preventDefault();held=true;}};
 window.onkeyup=e=>{if(e.code==='Space')held=false;};
 window.onblur=()=>{held=false;stopGame();};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){held=false;stopGame();}});
 $('#again').onclick=()=>startRound(input);
-$('#changeLevel').onclick=()=>{state='ready';clearObjects();$('#endPanel').hidden=true;$('#hud').hidden=true;$('#stage').hidden=true;$('#controls').hidden=true;$('#setup').hidden=false;stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;$('#status').textContent='Choose a level';};
+$('#changeLevel').onclick=()=>{state='ready';clearObjects();$('#endPanel').hidden=true;$('#hud').hidden=true;$('#stage').hidden=true;$('#controls').hidden=true;$('#setup').hidden=false;stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;$('#cameraPreview').hidden=true;$('#status').textContent='Choose a level';};
 $('#howto').onerror=()=>{$('#howto').hidden=true;};$('#howto').onloadeddata=()=>{$('#videoFallback').hidden=true;};
 /* camera pose (lazy) */
 const cam=$('#camera');
@@ -152,11 +155,11 @@ function resetMotion(){lastStep=-Infinity;lastPose=-Infinity;calibrationStart=nu
 function updateMotion(p,now){
  if(!['playing','countdown','calibrating'].includes(state))return;
  const ids=[11,12,23,24,25,26,27,28];
- if(!p||ids.some(i=>!p[i]||(p[i].visibility??0)<.65)){lastPose=-Infinity;lastStep=-Infinity;stepCount=0;previousLeg='';calibrationStart=null;calibrationSamples=[];return;}
+ if(!p||ids.some(i=>!p[i]||(p[i].visibility??0)<.65||!Number.isFinite(p[i].x)||!Number.isFinite(p[i].y)||p[i].x<0||p[i].x>1||p[i].y<0||p[i].y>1)){lastPose=-Infinity;lastStep=-Infinity;stepCount=0;previousLeg='';calibrationStart=null;calibrationSamples=[];return;}
  lastPose=now;
  const hip=(p[23].x+p[24].x)/2;
  const scale=Math.hypot((p[11].x+p[12].x)/2-hip,(p[11].y+p[12].y)/2-(p[23].y+p[24].y)/2);
- if(scale<.06){lastStep=-Infinity;return;}
+ if(scale<.06){lastPose=-Infinity;lastStep=-Infinity;stepCount=0;previousLeg='';calibrationStart=null;calibrationSamples=[];return;}
  const knees=(p[23].y-p[25].y-p[24].y+p[26].y)/scale;
  if(state==='calibrating'){
   if(calibrationStart===null)calibrationStart=now;
@@ -229,12 +232,24 @@ renderer.setAnimationLoop(()=>{
  camera.lookAt(CAM_LOOK.x+followX,CAM_LOOK.y,CAM_LOOK.z);
  camera.rotation.z+=sh*.05*Math.sin(t*33);
  /* HUD */
- if(state==='playing'){$('#time').textContent=Math.ceil(time);
+ const tracked=now-lastPose<CONFIG.trackingTimeout;
+ if(input==='camera'){
+  $('#cameraPreview').dataset.tracked=String(tracked);
+  $('#frameState').textContent=tracked?'✓ In frame':'⚠ Tracking lost';
+  $('#cameraHint').textContent=!tracked?'Show full body':state==='calibrating'?'Stand still':state==='paused'?'Paused':state==='ended'?'Finished':state==='countdown'?'Get ready':active?'Running ✓':'Run on spot';
+  if(state==='calibrating'){
+   $('#countdown').textContent=tracked?'Stand still':'Show full body';
+   $('#status').textContent=tracked?'In frame · Stand still':'Tracking lost · Show full body';
+  }
+ }
+ if(state==='playing'){
+  $('#time').textContent=Math.ceil(time);
   $('#keepRunning').hidden=active;
-  $('#keepRunning').innerHTML=input==='camera'&&now-lastPose>=CONFIG.trackingTimeout?'📷<br>Full body visible': '🏃<br>Keep running!';
-  if(!active)$('#status').textContent=now>hitUntil?'Keep running!':'Ouch!';
-  else if(input==='keyboard')$('#status').textContent='Running ✓';
-  $('#flash').style.opacity=now<flashUntil?.55:0;}
+  const lost=input==='camera'&&!tracked;
+  $('#keepRunning').innerHTML=lost?'📷<br>Show full body':now<=hitUntil?'🐾<br>Ouch!':'🏃<br>Run on spot';
+  $('#status').textContent=lost?'Tracking lost · Show full body':now<=hitUntil?'Ouch!':active?(input==='camera'?'In frame · Running ✓':'Running ✓'):(input==='camera'?'In frame · Run on spot':'Hold Run');
+  $('#flash').style.opacity=now<flashUntil?.55:0;
+ }
  renderer.render(scene,camera);
  window.__dodge={get s(){return{state,lane,level,input,score,time:+time.toFixed(1),x:+player.position.x.toFixed(2),y:+player.position.y.toFixed(2),active,held,activeObjs:objects.filter(o=>!o.done).length}}};
 });
